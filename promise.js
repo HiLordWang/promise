@@ -168,7 +168,6 @@ Promise.all = function (promises) {
 }
 
 
-
 Promise.race = function (promises) {
     return new Promise((resolve, reject) => {
         promises.forEach(p => {
@@ -182,25 +181,69 @@ Promise.resolve = function (value) {
     return isPromise(value) ? value : new Promise(resolve => resolve(value));
 }
 
+
 Promise.reject = function (err) {
     return new Promise((resolve, reject) => {
         reject(err);
     });
 }
 
-Promise.try = function () {
-    
+
+Promise.try = function (fn) {
+    return new Promise((resolve, reject) => {
+        if (typeof fn !== 'function') {
+            let reason = Object.prototype.toString.call(fn)
+            reject(new TypeError(`expecting a function but got ${reason}`))
+        }
+        resolve(fn())
+    });
 }
 
-Promise.catch = function () {
-   
+
+Promise.any = function (promises) {
+    return new Promise((resolve, reject) => {
+        let i = 0;
+        let data = Object.create(null);
+        promises.forEach(current => {
+            if (isPromise(current)) {
+                current.then(data => {
+                    resolve(data);
+                }, err => {
+                    data[i++] = err;
+                    data.length = i;
+                    i === promises.length && reject(data);
+                })
+            } else {
+                resolve(current)
+            }
+        })
+    })
 }
 
-Promise.any = function () {
-   
-}
-Promise.allSettled = function () {
-   
+
+Promise.allSettled = function (promises) {
+    return new Promise((resolve, reject) => {
+        let arr = [];
+        let i = 0;
+        const processData = (index, data) => {
+            arr[index] = data;
+            if (++i === promises.length) {
+                resolve(arr);
+            }
+        }
+        for (let i = 0; i < promises.length; i++) {
+            let current = promises[i];
+            if (isPromise(current)) {
+                current.then(data => {
+                    processData(i, { status: 'rejected', value: data });
+                }, err => {
+                    processData(i, { status: 'rejected', reason: err });
+                })
+            } else {
+                processData(i, { status: 'fulfilled', value: current });
+            }
+        }
+    })
 }
 
 
